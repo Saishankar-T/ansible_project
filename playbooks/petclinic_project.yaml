@@ -1,0 +1,85 @@
+- hosts: remotemachines
+  become_user: root
+  become_method: sudo
+  become: yes
+
+  vars:
+    debain_system_package_name: maven
+    redhat_system_package_name: maven
+    src_path: /home/ubuntu/Docker-Project/target/
+    dest_path_for_debain_system: /home/ubuntu/target/
+    dest_path_for_redhat_system: /home/ec2-user/target/
+ 
+  tasks:
+    - name: installing maven package in debain systems
+      apt:
+        name:  "{{ debain_system_package_name }}"
+        state: latest
+        update_cache: yes
+      when: ansible_distribution=="Ubuntu"
+
+    - name: installing maven package in redhat systems
+      yum:
+        name:  "{{ redhat_system_package_name }}"
+        state: latest
+        update_cache: yes
+      when: ansible_distribution=="RedHat"
+
+    - name: installing net-tools package in debain systems
+      apt:
+        name: net-tools
+        state: latest
+        update_cache: yes
+      when: ansible_distribution=="Ubuntu"
+
+    - name: installing net-tools package in redhat systems
+      yum:
+        name: net-tools
+        state: latest
+        update_cache: yes
+      when: ansible_distribution=="RedHat"
+
+    - name: excuting netstat command
+      ignore_errors: yes
+      shell:
+        cmd: netstat -ntpl | grep "8080" | awk '{print $7}' | awk -F '/' '{print $1}'
+      register: netstat_status
+
+    - name: killing the java process if exists
+      ignore_errors: yes
+      shell:
+        cmd: kill -9 "{{ netstat_status.stdout }}"
+
+    - name: removing existing target folders from debain system
+      file:
+        path: "{{ dest_path_for_debain_system }}"
+        state: absent
+      when: ansible_distribution=="Ubuntu"
+
+    - name: removing existing target folders from redhat system
+      file:
+        path: "{{ dest_path_for_redhat_system }}"
+        state: absent
+      when: ansible_distribution=="RedHat"
+
+    - name: copying files from local machine to remote machines for debain systems
+      copy:
+        src: "{{ src_path }}"
+        dest: "{{ dest_path_for_debain_system }}"
+      when: ansible_distribution=="Ubuntu"
+
+    - name: copying files from local machine to remote machines for redhat systems
+      copy:
+        src: "{{ src_path }}"
+        dest: "{{ dest_path_for_redhat_system }}"
+      when: ansible_distribution=="RedHat"
+
+    - name: running the artificat in debain systems
+      shell:
+        cmd: java -jar target/*.jar &
+      when: ansible_distribution=="Ubuntu"
+
+    - name: running the artificat in redhat systems
+      shell:
+        cmd: nohup java -jar target/*.jar &
+      when: ansible_distribution=="RedHat"
